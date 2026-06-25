@@ -70,7 +70,7 @@ body{
   width:52px;
 }
 
-/* Glow winner */
+/* Winner glow */
 .win{
   animation:glow 1.6s infinite;
 }
@@ -79,7 +79,7 @@ body{
   50%{ box-shadow:0 0 15px rgba(212,255,58,.8); }
 }
 
-/* PANEL */
+/* Panels */
 .card{
   background:#1e2435;
   padding:12px;
@@ -151,7 +151,7 @@ button{
 </div>
 
 <!-- LOG -->
-<div class="card log" id="log">
+<div class="card log" id="logDiv">
 Match not started
 </div>
 
@@ -165,7 +165,8 @@ let S = {
   games:[0,0],
   sets:[0,0],
   server:0,
-  over:false
+  over:false,
+  winner:null
 };
 
 function txt(p,o){
@@ -175,11 +176,11 @@ function txt(p,o){
   return '40';
 }
 
-/* ───────── EXPLANATION ENGINE ───────── */
-
+/* ✅ EXPLANATION ENGINE (FIXED) */
 function explain(){
   const [p0,p1]=S.pts;
-  const server=S.server;
+  const [g0,g1]=S.games;
+  const [s0,s1]=S.sets;
 
   if(S.over){
     setExp("Match Won",
@@ -189,7 +190,7 @@ function explain(){
 
   if(p0>=3 && p1>=3 && p0===p1){
     setExp("Deuce",
-      "Tie at 40–40. Must win two straight points.");
+      "40–40. Must win two consecutive points.");
     return;
   }
 
@@ -202,21 +203,26 @@ function explain(){
     return;
   }
 
-  // Game point detection
   for(let i=0;i<2;i++){
-    let o=1-i;
-    if(S.pts[i]==3 && S.pts[o]<3){
-      let prefix = (S.sets[i]==1 && S.games[i]>=5) ? "Match Point" :
-                   (S.games[i]>=5 ? "Set Point" : "Game Point");
+    let opp=1-i;
 
-      setExp(prefix,
-        `Player ${i+1} is one point from winning.`);
+    if(S.pts[i]===3 && S.pts[opp]<3){
+
+      let isSet = S.games[i]>=5;
+      let isMatch = isSet && S.sets[i]===1;
+
+      let label = isMatch ? "Match Point"
+                 : isSet   ? "Set Point"
+                 : "Game Point";
+
+      setExp(label,
+        `Player ${i+1} is one point from winning ${isMatch?"the match":isSet?"the set":"the game"}.`);
       return;
     }
   }
 
   setExp("In Play",
-    `Score ${txt(p0,p1)}. Player ${server+1} serving.`);
+    `Score ${txt(p0,p1)}. Player ${S.server+1} serving.`);
 }
 
 function setExp(title,msg){
@@ -224,8 +230,7 @@ function setExp(title,msg){
   info.innerText = msg;
 }
 
-/* ───────── CORE LOGIC ───────── */
-
+/* ✅ UPDATE */
 function update(){
   p0.innerText = txt(S.pts[0],S.pts[1]);
   p1.innerText = txt(S.pts[1],S.pts[0]);
@@ -236,6 +241,10 @@ function update(){
   row0.classList.toggle("serving", S.server===0);
   row1.classList.toggle("serving", S.server===1);
 
+  document.querySelectorAll("button").forEach(b=>{
+    b.disabled = S.over;
+  });
+
   explain();
 }
 
@@ -243,6 +252,7 @@ function log(msg){
   logDiv.innerHTML = msg+"<br>"+logDiv.innerHTML;
 }
 
+/* ✅ GAME LOGIC */
 function point(pi){
   if(S.over) return;
 
@@ -286,11 +296,13 @@ function winSet(pi){
 
   log("SET → Player "+(pi+1));
 
-  if(S.sets[pi]==2){
-    S.over=true;
-    S.winner=pi;
-    setExp("Match Complete",`Player ${pi+1} wins`);
+  if(S.sets[pi] === 2){
+    S.over = true;
+    S.winner = pi;
+
     document.getElementById("row"+pi).classList.add("win");
+
+    setExp("Match Complete", `Player ${pi+1} wins the match`);
   }
 
   update();
