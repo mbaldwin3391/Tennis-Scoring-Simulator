@@ -9,13 +9,13 @@ body{
   margin:0;
   background:#0f1117;
   color:#fff;
-  font-family:Arial, sans-serif;
+  font-family:Arial,sans-serif;
 }
 
 .app{
   max-width:520px;
   margin:auto;
-  padding:16px;
+  padding:14px;
 }
 
 /* SCOREBUG */
@@ -23,7 +23,7 @@ body{
   background:linear-gradient(#1f5fb8,#0b2f7a);
   border-radius:10px;
   overflow:hidden;
-  box-shadow:0 10px 25px rgba(0,0,0,.5);
+  box-shadow:0 10px 24px rgba(0,0,0,.6);
 }
 
 .row{
@@ -33,14 +33,25 @@ body{
 }
 
 .row + .row{
-  border-top:1px solid rgba(255,255,255,.2);
+  border-top:1px solid rgba(255,255,255,.25);
 }
 
 .name{
   flex:1;
   padding-left:10px;
-  font-weight:700;
+  font-weight:800;
 }
+
+.server{
+  width:10px;
+  height:20px;
+  background:#d4ff3a;
+  margin-left:6px;
+  transform:skewX(-20deg);
+  display:none;
+}
+
+.serving .server{ display:inline-block; }
 
 .cell{
   width:40px;
@@ -48,24 +59,24 @@ body{
   font-weight:bold;
 }
 
-.points{
-  background:#fff;
-  color:#000;
-  width:50px;
-}
-
 .set{
   background:#cfe5f7;
   color:#003;
 }
 
-.glow{
-  animation:glow 1.5s infinite;
+.points{
+  background:#fff;
+  color:#000;
+  width:52px;
+}
+
+/* Glow winner */
+.win{
+  animation:glow 1.6s infinite;
 }
 
 @keyframes glow{
-  0%,100%{box-shadow:0 0 0 rgba(212,255,58,0);}
-  50%{box-shadow:0 0 15px rgba(212,255,58,.7);}
+  50%{ box-shadow:0 0 15px rgba(212,255,58,.8); }
 }
 
 /* PANEL */
@@ -74,6 +85,14 @@ body{
   padding:12px;
   border-radius:10px;
   margin-top:12px;
+}
+
+.label{
+  font-size:11px;
+  font-weight:bold;
+  color:#2d9e6b;
+  margin-bottom:6px;
+  text-transform:uppercase;
 }
 
 button{
@@ -95,7 +114,7 @@ button{
   font-size:12px;
   max-height:100px;
   overflow:auto;
-  color:#aaa;
+  color:#94a3b8;
 }
 </style>
 </head>
@@ -104,29 +123,34 @@ button{
 
 <div class="app">
 
+<!-- SCOREBUG -->
 <div class="scorebug">
-  <div class="row" id="row0">
-    <div class="name">PLAYER 1</div>
+  <div id="row0" class="row serving">
+    <div class="name">PLAYER 1 <span class="server"></span></div>
     <div class="cell set" id="g0">0</div>
     <div class="cell points" id="p0">0</div>
   </div>
 
-  <div class="row" id="row1">
-    <div class="name">PLAYER 2</div>
+  <div id="row1" class="row">
+    <div class="name">PLAYER 2 <span class="server"></span></div>
     <div class="cell set" id="g1">0</div>
     <div class="cell points" id="p1">0</div>
   </div>
 </div>
 
-<div class="card" id="info">
-  Click a button to start the match
+<!-- EXPLANATION -->
+<div class="card">
+  <div class="label" id="label">Ready</div>
+  <div id="info">Click a button to start the match</div>
 </div>
 
+<!-- BUTTONS -->
 <div class="btns">
   <button class="p1" onclick="point(0)">Point → Player 1</button>
   <button class="p2" onclick="point(1)">Point → Player 2</button>
 </div>
 
+<!-- LOG -->
 <div class="card log" id="log">
 Match not started
 </div>
@@ -134,9 +158,9 @@ Match not started
 </div>
 
 <script>
-const PTS = ['0','15','30','40'];
+const LABELS = ['0','15','30','40'];
 
-let state = {
+let S = {
   pts:[0,0],
   games:[0,0],
   sets:[0,0],
@@ -144,19 +168,75 @@ let state = {
   over:false
 };
 
-function display(p,o){
-  if(p<3 && o<3) return PTS[p];
+function txt(p,o){
+  if(p<3 && o<3) return LABELS[p];
   if(p===o) return '40';
   if(p>o) return 'AD';
   return '40';
 }
 
-function update(){
-  p0.innerText = display(state.pts[0],state.pts[1]);
-  p1.innerText = display(state.pts[1],state.pts[0]);
+/* ───────── EXPLANATION ENGINE ───────── */
 
-  g0.innerText = state.games[0];
-  g1.innerText = state.games[1];
+function explain(){
+  const [p0,p1]=S.pts;
+  const server=S.server;
+
+  if(S.over){
+    setExp("Match Won",
+      `Player ${S.winner+1} wins the match.`);
+    return;
+  }
+
+  if(p0>=3 && p1>=3 && p0===p1){
+    setExp("Deuce",
+      "Tie at 40–40. Must win two straight points.");
+    return;
+  }
+
+  if(p0>=3 && p1>=3){
+    let leader = p0>p1?0:1;
+    setExp(
+      `Advantage Player ${leader+1}`,
+      "One more point wins the game. Lose → back to Deuce."
+    );
+    return;
+  }
+
+  // Game point detection
+  for(let i=0;i<2;i++){
+    let o=1-i;
+    if(S.pts[i]==3 && S.pts[o]<3){
+      let prefix = (S.sets[i]==1 && S.games[i]>=5) ? "Match Point" :
+                   (S.games[i]>=5 ? "Set Point" : "Game Point");
+
+      setExp(prefix,
+        `Player ${i+1} is one point from winning.`);
+      return;
+    }
+  }
+
+  setExp("In Play",
+    `Score ${txt(p0,p1)}. Player ${server+1} serving.`);
+}
+
+function setExp(title,msg){
+  label.innerText = title;
+  info.innerText = msg;
+}
+
+/* ───────── CORE LOGIC ───────── */
+
+function update(){
+  p0.innerText = txt(S.pts[0],S.pts[1]);
+  p1.innerText = txt(S.pts[1],S.pts[0]);
+
+  g0.innerText = S.games[0];
+  g1.innerText = S.games[1];
+
+  row0.classList.toggle("serving", S.server===0);
+  row1.classList.toggle("serving", S.server===1);
+
+  explain();
 }
 
 function log(msg){
@@ -164,14 +244,14 @@ function log(msg){
 }
 
 function point(pi){
-  if(state.over) return;
+  if(S.over) return;
 
-  let opp = 1-pi;
-  state.pts[pi]++;
+  let o=1-pi;
+  S.pts[pi]++;
 
   animate(pi);
 
-  if(state.pts[pi]>=4 && state.pts[pi]-state.pts[opp]>=2){
+  if(S.pts[pi]>=4 && S.pts[pi]-S.pts[o]>=2){
     winGame(pi);
     return;
   }
@@ -180,43 +260,43 @@ function point(pi){
 }
 
 function animate(i){
-  let el = document.getElementById("p"+i);
+  let el=document.getElementById("p"+i);
   el.style.transform="scale(1.2)";
-  setTimeout(()=>el.style.transform="scale(1)",150);
+  setTimeout(()=>el.style.transform="scale(1)",120);
 }
 
 function winGame(pi){
-  let opp=1-pi;
-  state.games[pi]++;
-  state.pts=[0,0];
-  state.server=opp;
+  let o=1-pi;
+  S.games[pi]++;
+  S.pts=[0,0];
+  S.server=o;
 
   log("Game → Player "+(pi+1));
 
-  if(state.games[pi]>=6 && state.games[pi]-state.games[opp]>=2){
-    winSet(pi);
-    return;
+  if(S.games[pi]>=6 && S.games[pi]-S.games[o]>=2){
+    winSet(pi); return;
   }
 
   update();
 }
 
 function winSet(pi){
-  state.sets[pi]++;
-  state.games=[0,0];
+  S.sets[pi]++;
+  S.games=[0,0];
 
   log("SET → Player "+(pi+1));
 
-  if(state.sets[pi]===2){
-    state.over=true;
-    document.getElementById("info").innerText =
-      "🎾 Player "+(pi+1)+" WINS MATCH";
-    document.getElementById("row"+pi).classList.add("glow");
+  if(S.sets[pi]==2){
+    S.over=true;
+    S.winner=pi;
+    setExp("Match Complete",`Player ${pi+1} wins`);
+    document.getElementById("row"+pi).classList.add("win");
   }
 
   update();
 }
 
+/* INIT */
 update();
 </script>
 
